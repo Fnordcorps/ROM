@@ -8,7 +8,12 @@ import threading
 import customtkinter as ctk
 from tkinter import filedialog
 
+import webbrowser
+
 from theme import COLORS, FONTS, RADIUS, PADDING
+
+APP_VERSION = "1.0.0"
+GITHUB_URL = "https://github.com/Fnordcorps/ROM"
 from scanner import scan_roms, ScanResult, RomEntry
 from mover import move_roms, delete_roms, get_media_files_for_entries
 
@@ -206,6 +211,14 @@ class App(ctk.CTk):
         if self._banner_pil:
             header.bind("<Configure>", self._resize_banner)
             self.after(100, self._resize_banner)
+
+        # ABOUT label (top-left of banner)
+        self._about_label = ctk.CTkLabel(
+            self._banner_bg, text="ABOUT", font=FONTS["body_small"],
+            text_color=COLORS["accent"], cursor="hand2",
+        )
+        self._about_label.place(x=PADDING["page"], y=30, anchor="w")
+        self._about_label.bind("<Button-1>", lambda e: self._show_about_dialog())
 
         # Buttons placed directly on banner label (no title – user's banner has it)
         self.folder_btn = ctk.CTkButton(
@@ -577,6 +590,46 @@ class App(ctk.CTk):
             self.debug_text.see("end")
             self.debug_text.configure(state="disabled")
         self.after(0, _append)
+
+    # ================================================================
+    # About dialog
+    # ================================================================
+    def _show_about_dialog(self):
+        """Show the About dialog with app info and GitHub link."""
+        dialog = ctk.CTkToplevel(self)
+        dialog.title("About ROM")
+        dialog.geometry("360x180")
+        dialog.configure(fg_color=COLORS["bg_primary"])
+        dialog.resizable(False, False)
+        dialog.transient(self)
+        dialog.grab_set()
+
+        self.update_idletasks()
+        x = self.winfo_x() + (self.winfo_width() - 360) // 2
+        y = self.winfo_y() + (self.winfo_height() - 180) // 2
+        dialog.geometry(f"+{x}+{y}")
+
+        ctk.CTkLabel(
+            dialog, text="ROM", font=FONTS["heading_large"],
+            text_color=COLORS["accent"],
+        ).pack(pady=(24, 2))
+
+        ctk.CTkLabel(
+            dialog, text="by FNORDCORPS", font=FONTS["body"],
+            text_color=COLORS["text_primary"],
+        ).pack(pady=(0, 2))
+
+        ctk.CTkLabel(
+            dialog, text=f"v{APP_VERSION}", font=FONTS["body_small"],
+            text_color=COLORS["text_secondary"],
+        ).pack(pady=(0, 8))
+
+        link = ctk.CTkLabel(
+            dialog, text=GITHUB_URL, font=FONTS["body_small"],
+            text_color=COLORS["status_info"], cursor="hand2",
+        )
+        link.pack(pady=(0, 16))
+        link.bind("<Button-1>", lambda e: webbrowser.open(GITHUB_URL))
 
     # ================================================================
     # Folder selection
