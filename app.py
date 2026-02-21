@@ -296,9 +296,9 @@ class App(ctk.CTk):
 
         self._about_btn = ctk.CTkLabel(
             bar, text="ABOUT", font=FONTS["status"],
-            text_color=COLORS["accent"], cursor="hand2",
+            text_color=COLORS["text_about"], cursor="hand2",
         )
-        self._about_btn.place(relx=0.5, y=12, anchor="n")
+        self._about_btn.place(relx=0.5, y=-2, anchor="n")
         self._about_btn.bind("<Button-1>", lambda e: self._show_about_dialog())
 
         self.stats_label = ctk.CTkLabel(
@@ -631,7 +631,7 @@ class App(ctk.CTk):
         ).pack(pady=(0, 8))
 
         link = ctk.CTkLabel(
-            dialog, text=GITHUB_URL, font=FONTS["body_small"],
+            dialog, text=GITHUB_URL, font=FONTS["body"],
             text_color=COLORS["status_info"], cursor="hand2",
         )
         link.pack(pady=(0, 16))

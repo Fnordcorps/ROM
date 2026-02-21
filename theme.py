@@ -21,6 +21,7 @@ COLORS = {
     "text_primary":     "#ffffff",
     "text_secondary":   "#FFFFFF",
     "text_heading":     "#e09c3a",
+    "text_about":       "#e09c3a",
 
     # Buttons
     "btn_primary":      "#0e639c",
@@ -32,7 +33,7 @@ COLORS = {
     # Borders
     "border_default":   "#3c3c3c",
     "border_input":     "#555555",
-    "border_stats_bar": "#b63405",
+    "border_stats_bar": "#e09c3a",
 
     # Status
     "status_info":      "#569cd6",
