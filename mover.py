@@ -14,7 +14,7 @@ from scanner import RomEntry
 
 
 HIDDEN_FOLDER = "Hidden"
-LOG_FILENAME = "rom_duplicate_manager.log"
+LOG_FILENAME = "rom.log"
 
 # gamelist.xml tags that reference media files
 MEDIA_TAGS = ("image", "video", "marquee", "thumbnail", "fanart", "manual", "bezel", "boxback")

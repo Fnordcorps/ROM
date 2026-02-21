@@ -1,6 +1,6 @@
 """
-ROM Duplicate Manager – entry point.
-Scans a RetroBat ROM collection, finds cross-system duplicates,
+ROM – entry point.
+Scans a ROM collection, finds cross-system duplicates,
 and lets you move unwanted copies to Hidden/<system>/ folders.
 """
 

@@ -1,16 +1,16 @@
-# ROM Duplicate Manager
+# ROM
 
 ## Overview
-Desktop app (Python + CustomTkinter) for managing a RetroBat/EmulationStation ROM collection. Scans a ROM root folder, finds cross-system duplicates, and lets users move or delete unwanted copies. Also provides a flat browse-all-games view for general ROM management.
+Desktop app (Python + CustomTkinter) for managing ROM collections structured in RetroBat or Launchbox format. Scans a ROM root folder, finds cross-system duplicates, and lets users move or delete unwanted copies. Also provides a flat browse-all-games view for general ROM management.
 
 ## Architecture
 
 ### Files
 - **main.py** — Entry point. Sets `os.chdir` for PyInstaller frozen bundles, launches `App`.
-- **app.py** — Main UI (~1100 lines). Single `App(ctk.CTk)` class with all widgets, filtering, dialogs.
+- **app.py** — Main UI (~1400 lines). Single `App(ctk.CTk)` class with all widgets, filtering, dialogs.
 - **scanner.py** — ROM scanning and duplicate detection. Parses `gamelist.xml` per system folder, normalizes game names, groups duplicates across systems.
-- **mover.py** — File operations: `move_roms()` (to Hidden/<system>/), `delete_roms()` (permanent, optional media deletion). Logs to `rom_duplicate_manager.log`.
-- **theme.py** — Color palette, fonts, radii, padding. Dark theme with orange accent (#e09c3a), VS Code-inspired.
+- **mover.py** — File operations: `move_roms()` (to Hidden/<system>/), `delete_roms()` (permanent, optional media deletion). Logs to `rom.log`.
+- **theme.py** — Color palette, fonts, radii, padding. Dark theme with orange accent (#d6791c), VS Code-inspired.
 - **icon.ico** — App icon (user-supplied, 256x256).
 - **banner.png** — Header banner image (1920x80 RGB, user-supplied).
 
@@ -21,14 +21,14 @@ Desktop app (Python + CustomTkinter) for managing a RetroBat/EmulationStation RO
 
 ### UI Layout (app.py)
 - **Row 0**: Header (80px) — banner.png background, Select Folder + Scan buttons (flush-right)
-- **Row 1**: Stats bar — path label, search/sort/system filters, MANAGE/DUPLICATES mode tabs, "Unscraped only" checkbox
-- **Row 2**: Game list (scrollable, weighted) — paginated (PAGE_SIZE=50)
+- **Row 1**: Stats bar (110px fixed) — path label, search/sort/system filters, MANAGE/DUPLICATES mode tabs, pagination, "Unscraped only" checkbox
+- **Row 2**: Game list (scrollable, weighted) — paginated with per-page selector (25/50/100/200)
 - **Row 3**: Action bar — Select All, Deselect All, Move Selected, Delete Selected
 - **Row 4**: Debug panel (collapsible) — real-time log output
 
 ### Two View Modes
+- **MANAGE** (default after scan): Flat list of ALL games. Sort by alpha/size. System filter shows all scanned systems. "Unscraped only" checkbox filters to games not in gamelist.xml.
 - **DUPLICATES**: Grouped expandable cards showing games that exist across 2+ systems. Sort by alpha/size/copies. System filter shows systems in duplicates.
-- **MANAGE**: Flat list of ALL games. Sort by alpha/size. System filter shows all scanned systems. "Unscraped only" checkbox filters to games not in gamelist.xml.
 
 ### Asset Loading
 - `_find_asset(filename)`: checks next to exe first (user override), then `sys._MEIPASS` (PyInstaller bundle)
@@ -36,11 +36,11 @@ Desktop app (Python + CustomTkinter) for managing a RetroBat/EmulationStation RO
 
 ### Important Patterns
 - **Threading**: Scan/move/delete run in background threads. `threading.Event` for scan cancellation. UI updates via `self.after(0, callback)`.
-- **Pagination**: Render 50 groups/entries at a time with "Load more" button to prevent UI freeze on large datasets (~48k games).
+- **Pagination**: Page-based navigation with per-page selector (25/50/100/200). Page nav with prev/next arrows and numbered buttons with ellipsis.
 - **Debounced search**: 300ms delay on text input before re-filtering.
 - **ProgressOverlay**: Full-screen overlay with animated braille spinner for scan/analyse/load/move/delete phases.
-- **Pre-scan popup**: First scan shows "ENSURE GAMELISTS ARE UP TO DATE IN RETROBAT" confirmation. Skipped on re-scans after move/delete.
-- **Scan button**: Orange (#e09c3a) before first scan, darker orange (#c4882e) after scan done.
+- **Pre-scan popup**: First scan shows "FOR BEST RESULTS / ENSURE GAMELISTS ARE UP TO DATE" confirmation. Skipped on re-scans after move/delete.
+- **Scan button**: Orange (#d6791c) before first scan, darker (#ba6919) after scan done.
 
 ## Build
 
@@ -51,15 +51,15 @@ Desktop app (Python + CustomTkinter) for managing a RetroBat/EmulationStation RO
 ### Package as .exe
 ```bash
 cd y:/RomManager
-python -m PyInstaller --onefile --windowed --name RomDuplicateManager \
-  --icon="y:/RomManager/icon.ico" \
-  --add-data "y:/RomManager/icon.ico;." \
-  --add-data "y:/RomManager/banner.png;." \
-  --collect-all customtkinter \
-  --distpath ./package --workpath ./build --specpath ./build \
+python -m PyInstaller --onefile --windowed --name ROM ^
+  --icon="y:/RomManager/icon.ico" ^
+  --add-data "y:/RomManager/icon.ico;." ^
+  --add-data "y:/RomManager/banner.png;." ^
+  --collect-all customtkinter ^
+  --distpath ./package --workpath ./build --specpath ./build ^
   main.py
 ```
-Output: `package/RomDuplicateManager.exe` (single file, ~20MB, all assets bundled inside)
+Output: `package/ROM.exe` (single file, ~20MB, all assets bundled inside)
 
 ### Known Build Issues
 - Use absolute paths for `--icon` and `--add-data` (PyInstaller resolves relative to spec dir)
@@ -98,8 +98,6 @@ Output: `package/RomDuplicateManager.exe` (single file, ~20MB, all assets bundle
 ```
 
 ## User Preferences
-- Dark theme matching QuoteMachine project style
+- Dark theme with orange accents
 - Windows 10 target platform
 - Network ROM storage (\\OASTARCADE\roms\)
-- User has ScreenScraper.fr account for scraping
-- "GamelistGenerator" is a separate tool (also built by Claude) that amalgamates multiple gamelists

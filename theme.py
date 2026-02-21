@@ -1,6 +1,6 @@
 """
-Theme configuration for ROM Duplicate Manager.
-Dark theme with orange accents, inspired by VS Code Dark+ / QuoteMachine.
+Theme configuration for ROM.
+Dark theme with orange accents, inspired by VS Code Dark+.
 """
 
 
@@ -14,24 +14,25 @@ COLORS = {
     "bg_input":         "#3c3c3c",
 
     # Accent
-    "accent":           "#e09c3a",
-    "accent_dark":      "#c4882e",
+    "accent":           "#d6791c",
+    "accent_dark":      "#ba6919",
 
     # Text
-    "text_primary":     "#cccccc",
-    "text_secondary":   "#808080",
+    "text_primary":     "#ffffff",
+    "text_secondary":   "#FFFFFF",
     "text_heading":     "#e09c3a",
 
     # Buttons
     "btn_primary":      "#0e639c",
     "btn_primary_hover":"#1177bb",
-    "btn_danger":       "#f44747",
+    "btn_danger":       "#b52424",
     "btn_danger_hover": "#d73333",
     "btn_success":      "#6a9955",
 
     # Borders
     "border_default":   "#3c3c3c",
     "border_input":     "#555555",
+    "border_stats_bar": "#c13004",
 
     # Status
     "status_info":      "#569cd6",

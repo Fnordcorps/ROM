@@ -1,5 +1,5 @@
 """
-ROM Duplicate Manager – main application window.
+ROM – main application window.
 """
 
 import os
@@ -11,9 +11,6 @@ from tkinter import filedialog
 from theme import COLORS, FONTS, RADIUS, PADDING
 from scanner import scan_roms, ScanResult, RomEntry
 from mover import move_roms, delete_roms, get_media_files_for_entries
-
-# How many group cards to render per batch (prevents UI freeze)
-PAGE_SIZE = 50
 
 
 def _format_size(size_bytes: int) -> str:
@@ -125,7 +122,7 @@ class App(ctk.CTk):
         super().__init__()
 
         # ── Window setup ────────────────────────────────────────────────
-        self.title("ROM Duplicate Manager")
+        self.title("ROM")
         self.geometry("1100x780")
         self.minsize(900, 600)
         self.configure(fg_color=COLORS["bg_primary"])
@@ -156,8 +153,8 @@ class App(ctk.CTk):
 
         # Pagination state
         self._sorted_groups: list = []         # current (possibly filtered) sorted group list
-        self._rendered_count: int = 0          # how many groups rendered so far
-        self._load_more_btn = None
+        self._current_page: int = 0            # current page (0-indexed)
+        self._per_page: int = 50               # items per page
 
         # Search debounce
         self._filter_after_id = None
@@ -175,8 +172,6 @@ class App(ctk.CTk):
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(2, weight=1)
 
-        # Log asset loading status after debug panel is built
-        self.after(200, self._log_startup_info)
 
     # ================================================================
     # Header (with optional banner image)
@@ -263,76 +258,56 @@ class App(ctk.CTk):
         except Exception as e:
             self._debug_log(f"Banner resize error: {e}")
 
-    def _log_startup_info(self):
-        """Log asset loading info to the debug panel on startup."""
-        frozen = getattr(sys, "frozen", False)
-        meipass = getattr(sys, "_MEIPASS", None)
-        self._debug_log(f"Frozen: {frozen}, MEIPASS: {meipass}")
-        icon_path = _find_asset("icon.ico")
-        banner_path = _find_asset("banner.png")
-        self._debug_log(f"Icon: {icon_path or 'NOT FOUND'}")
-        self._debug_log(f"Banner: {banner_path or 'NOT FOUND'}")
-        if self._banner_pil:
-            self._debug_log(f"Banner loaded: {self._banner_pil.size} {self._banner_pil.mode}")
-        elif hasattr(self, "_banner_load_err"):
-            self._debug_log(f"Banner load FAILED: {self._banner_load_err}")
-
     # ================================================================
     # Stats / Search / Filter bar + Mode tabs
     # ================================================================
     def _build_stats_bar(self):
-        bar = ctk.CTkFrame(self, fg_color=COLORS["bg_secondary"], corner_radius=0)
+        bar = ctk.CTkFrame(self, fg_color=COLORS["bg_secondary"], corner_radius=0,
+                           border_width=1, border_color=COLORS["border_stats_bar"],
+                           height=110)
         bar.grid(row=1, column=0, sticky="ew", pady=(1, 0))
         bar.grid_columnconfigure(0, weight=1)
+        bar.grid_propagate(False)
         self._stats_bar = bar
 
-        # ── Row 0: Path label + stats ──────────────────────────────
-        row0 = ctk.CTkFrame(bar, fg_color="transparent")
-        row0.grid(row=0, column=0, sticky="ew", padx=PADDING["page"], pady=(8, 0))
-        row0.grid_columnconfigure(0, weight=1)
+        # ── Row 0: Path + Search / Sort / System (single row) ─────
+        filter_row = ctk.CTkFrame(bar, fg_color="transparent")
+        filter_row.grid(row=0, column=0, sticky="ew", padx=PADDING["page"], pady=(4, 0))
+        filter_row.grid_columnconfigure(3, weight=1)
 
         self.path_label = ctk.CTkLabel(
-            row0, text="No folder selected",
+            filter_row, text="No folder selected",
             font=FONTS["heading_small"],
             text_color=COLORS["text_secondary"], anchor="w",
         )
-        self.path_label.grid(row=0, column=0, sticky="w")
+        self.path_label.grid(row=0, column=0, sticky="w", columnspan=4)
 
         self.stats_label = ctk.CTkLabel(
-            row0, text="", font=FONTS["body_small"],
+            filter_row, text="", font=FONTS["body_small"],
             text_color=COLORS["text_secondary"],
         )
-        self.stats_label.grid(row=0, column=1, sticky="e")
-
-        # ── Row 1: Filters (Search / Sort / System) ───────────────
-        filter_row = ctk.CTkFrame(bar, fg_color="transparent")
-        filter_row.grid(row=1, column=0, sticky="ew", padx=PADDING["page"], pady=(6, 0))
-        filter_row.grid_columnconfigure(4, weight=1)
-
-        ctk.CTkLabel(filter_row, text="Search:", font=FONTS["body_small"],
-                      text_color=COLORS["text_secondary"]
-        ).grid(row=0, column=0, padx=(0, 6))
+        self.stats_label.grid(row=0, column=4, sticky="e", columnspan=4)
 
         self.search_var = ctk.StringVar()
         self.search_var.trace_add("write", lambda *_: self._on_filter_changed())
         self.search_entry = ctk.CTkEntry(
             filter_row, textvariable=self.search_var,
-            font=FONTS["body_small"], height=30, width=220,
+            font=FONTS["body_small"], height=28, width=220,
             fg_color=COLORS["bg_input"], border_color=COLORS["border_input"],
-            corner_radius=RADIUS["input"], placeholder_text="Filter by game name...",
+            corner_radius=RADIUS["input"], placeholder_text="Search games...",
         )
-        self.search_entry.grid(row=0, column=1, sticky="w")
+        self.search_entry.grid(row=1, column=0, sticky="w", pady=(2, 0))
 
         ctk.CTkLabel(filter_row, text="Sort:", font=FONTS["body_small"],
                       text_color=COLORS["text_secondary"]
-        ).grid(row=0, column=2, padx=(16, 6))
+        ).grid(row=1, column=1, padx=(12, 6), pady=(2, 0))
 
-        self.sort_var = ctk.StringVar(value="Alphabetical")
+        self.sort_var = ctk.StringVar(value="A \u2192 Z")
         self.sort_dropdown = ctk.CTkOptionMenu(
             filter_row, variable=self.sort_var,
-            values=["Alphabetical", "Largest size first", "Most copies first"],
+            values=["A \u2192 Z", "Z \u2192 A", "Size \u2193", "Size \u2191", "Most copies"],
             font=FONTS["body_small"], dropdown_font=FONTS["body_small"],
-            height=30, width=170,
+            height=28, width=140,
             fg_color=COLORS["bg_input"], button_color=COLORS["border_input"],
             button_hover_color=COLORS["bg_card_hover"],
             dropdown_fg_color=COLORS["bg_card"],
@@ -340,26 +315,28 @@ class App(ctk.CTk):
             corner_radius=RADIUS["input"],
             command=lambda _: self._apply_filter(),
         )
-        self.sort_dropdown.grid(row=0, column=3)
+        self.sort_dropdown.grid(row=1, column=2, pady=(2, 0))
 
         ctk.CTkLabel(filter_row, text="System:", font=FONTS["body_small"],
                       text_color=COLORS["text_secondary"]
-        ).grid(row=0, column=4, padx=(16, 6), sticky="e")
+        ).grid(row=1, column=3, padx=(16, 6), sticky="e", pady=(2, 0))
 
         self.system_var = ctk.StringVar(value="All Systems")
-        self.system_dropdown = ctk.CTkOptionMenu(
+        self.system_dropdown = ctk.CTkComboBox(
             filter_row, variable=self.system_var,
             values=["All Systems"],
             font=FONTS["body_small"], dropdown_font=FONTS["body_small"],
-            height=30, width=160,
-            fg_color=COLORS["bg_input"], button_color=COLORS["border_input"],
+            height=28, width=160,
+            fg_color=COLORS["bg_input"], border_color=COLORS["border_input"],
+            button_color=COLORS["border_input"],
             button_hover_color=COLORS["bg_card_hover"],
             dropdown_fg_color=COLORS["bg_card"],
             dropdown_hover_color=COLORS["bg_card_hover"],
             corner_radius=RADIUS["input"],
             command=lambda _: self._apply_filter(),
+            state="readonly",
         )
-        self.system_dropdown.grid(row=0, column=5)
+        self.system_dropdown.grid(row=1, column=4, pady=(2, 0))
 
         # "Unscraped only" checkbox (visible in MANAGE mode only)
         self._unscraped_var = ctk.BooleanVar(value=False)
@@ -371,12 +348,13 @@ class App(ctk.CTk):
             checkbox_width=18, checkbox_height=18,
             command=self._apply_filter,
         )
-        self._unscraped_cb.grid(row=0, column=6, padx=(16, 0))
+        self._unscraped_cb.grid(row=1, column=5, padx=(16, 0), pady=(2, 0))
         self._unscraped_cb.grid_remove()  # hidden until MANAGE mode
 
-        # ── Row 2: Mode tabs ──────────────────────────────────────
+        # ── Row 1: Mode tabs (left) + Pagination (right) ─────────
         tab_row = ctk.CTkFrame(bar, fg_color="transparent")
-        tab_row.grid(row=2, column=0, sticky="w", padx=PADDING["page"], pady=(8, 8))
+        tab_row.grid(row=1, column=0, sticky="ew", padx=PADDING["page"], pady=(2, 2))
+        tab_row.grid_columnconfigure(2, weight=1)   # spacer between tabs and pagination
 
         self._manage_tab_btn = ctk.CTkButton(
             tab_row, text="MANAGE", font=FONTS["status"],
@@ -398,6 +376,35 @@ class App(ctk.CTk):
         )
         self._duplicates_tab_btn.grid(row=0, column=1)
 
+        # ── Pagination controls (right side of tab row) ──────
+        pag_frame = ctk.CTkFrame(tab_row, fg_color="transparent")
+        pag_frame.grid(row=0, column=3, sticky="e")
+        self._pag_frame = pag_frame
+
+        # Per-page selector
+        ctk.CTkLabel(pag_frame, text="Per page:", font=FONTS["body_small"],
+                      text_color=COLORS["text_secondary"]
+        ).grid(row=0, column=0, padx=(0, 4))
+
+        self._per_page_var = ctk.StringVar(value="50")
+        per_page_menu = ctk.CTkOptionMenu(
+            pag_frame, variable=self._per_page_var,
+            values=["25", "50", "100", "200"],
+            font=FONTS["body_small"], dropdown_font=FONTS["body_small"],
+            height=28, width=70,
+            fg_color=COLORS["bg_input"], button_color=COLORS["border_input"],
+            button_hover_color=COLORS["bg_card_hover"],
+            dropdown_fg_color=COLORS["bg_card"],
+            dropdown_hover_color=COLORS["bg_card_hover"],
+            corner_radius=RADIUS["input"],
+            command=self._on_per_page_changed,
+        )
+        per_page_menu.grid(row=0, column=1, padx=(0, 12))
+
+        # Page navigation buttons container
+        self._page_nav_frame = ctk.CTkFrame(pag_frame, fg_color="transparent")
+        self._page_nav_frame.grid(row=0, column=2)
+
     # ================================================================
     # Mode switching
     # ================================================================
@@ -416,9 +423,9 @@ class App(ctk.CTk):
                 fg_color=COLORS["bg_card"], hover_color=COLORS["bg_card_hover"],
                 text_color=COLORS["text_secondary"],
             )
-            self.sort_dropdown.configure(values=["Alphabetical", "Largest size first"])
-            if self.sort_var.get() == "Most copies first":
-                self.sort_var.set("Alphabetical")
+            self.sort_dropdown.configure(values=["A \u2192 Z", "Z \u2192 A", "Size \u2193", "Size \u2191"])
+            if self.sort_var.get() == "Most copies":
+                self.sort_var.set("A \u2192 Z")
             self._unscraped_cb.grid()
         else:
             self._duplicates_tab_btn.configure(
@@ -430,11 +437,12 @@ class App(ctk.CTk):
                 text_color=COLORS["text_secondary"],
             )
             self.sort_dropdown.configure(
-                values=["Alphabetical", "Largest size first", "Most copies first"]
+                values=["A \u2192 Z", "Z \u2192 A", "Size \u2193", "Size \u2191", "Most copies"]
             )
             self._unscraped_var.set(False)
             self._unscraped_cb.grid_remove()
 
+        self._current_page = 0
         self._populate_system_dropdown()
         self._apply_filter()
 
@@ -601,7 +609,7 @@ class App(ctk.CTk):
 
         ctk.CTkLabel(
             dialog,
-            text="ENSURE GAMELISTS ARE UP TO DATE\nIN RETROBAT",
+            text="FOR BEST RESULTS\nENSURE GAMELISTS ARE UP TO DATE",
             font=FONTS["heading_medium"], text_color=COLORS["accent"],
             justify="center",
         ).pack(padx=20, pady=(28, 20))
@@ -697,6 +705,22 @@ class App(ctk.CTk):
         self._manage_tab_btn.configure(state="normal")
         self._duplicates_tab_btn.configure(state="normal")
 
+        # Switch to MANAGE mode on first scan
+        if self._view_mode != "manage":
+            self._view_mode = "manage"
+            self._manage_tab_btn.configure(
+                fg_color=COLORS["accent"], hover_color=COLORS["accent_dark"],
+                text_color="#ffffff",
+            )
+            self._duplicates_tab_btn.configure(
+                fg_color=COLORS["bg_card"], hover_color=COLORS["bg_card_hover"],
+                text_color=COLORS["text_secondary"],
+            )
+            self.sort_dropdown.configure(values=["A \u2192 Z", "Z \u2192 A", "Size \u2193", "Size \u2191"])
+            if self.sort_var.get() == "Most copies":
+                self.sort_var.set("A \u2192 Z")
+            self._unscraped_cb.grid()
+
         # Populate system dropdown for current mode
         self._populate_system_dropdown()
 
@@ -708,7 +732,7 @@ class App(ctk.CTk):
         )
 
         self._overlay.update("Loading results...",
-                             f"Rendering first {min(PAGE_SIZE, len(sorted_groups))} "
+                             f"Rendering first {min(self._per_page, len(sorted_groups))} "
                              f"of {len(sorted_groups)} groups")
 
         self.after(50, self._finish_loading)
@@ -734,18 +758,20 @@ class App(ctk.CTk):
     # Game list population (paginated)
     # ================================================================
     def _clear_game_list(self):
-        if self._load_more_btn is not None:
-            self._load_more_btn.destroy()
-            self._load_more_btn = None
         for w in self.group_widgets:
             w.destroy()
         self.group_widgets.clear()
         self.check_vars.clear()
         self.entry_map.clear()
         self._sorted_groups = []
-        self._rendered_count = 0
+        self._current_page = 0
         if hasattr(self, "placeholder") and self.placeholder.winfo_exists():
             self.placeholder.destroy()
+
+    def _total_pages(self) -> int:
+        if not self._sorted_groups:
+            return 1
+        return max(1, -(-len(self._sorted_groups) // self._per_page))  # ceil div
 
     def _populate_game_list(self, sorted_groups: list):
         """Populate with grouped duplicate cards (DUPLICATES mode)."""
@@ -760,9 +786,10 @@ class App(ctk.CTk):
             )
             lbl.grid(row=0, column=0, pady=60)
             self.group_widgets.append(lbl)
+            self._update_page_nav()
             return
 
-        self._render_next_batch()
+        self._render_page()
 
     def _populate_flat_list(self, entries: list):
         """Populate with flat game rows (MANAGE mode)."""
@@ -777,50 +804,125 @@ class App(ctk.CTk):
             )
             lbl.grid(row=0, column=0, pady=60)
             self.group_widgets.append(lbl)
+            self._update_page_nav()
             return
 
-        self._render_next_batch()
+        self._render_page()
 
-    def _render_next_batch(self):
-        """Render the next PAGE_SIZE items."""
-        start = self._rendered_count
-        end = min(start + PAGE_SIZE, len(self._sorted_groups))
+    def _render_page(self):
+        """Render items for the current page only."""
+        # Clear current widgets but keep _sorted_groups
+        for w in self.group_widgets:
+            w.destroy()
+        self.group_widgets.clear()
+        self.check_vars.clear()
+        self.entry_map.clear()
+
+        start = self._current_page * self._per_page
+        end = min(start + self._per_page, len(self._sorted_groups))
 
         if self._render_mode == "duplicates":
             for idx in range(start, end):
                 norm_key, entries = self._sorted_groups[idx]
                 group_frame = self._create_group_widget(idx, norm_key, entries)
-                group_frame.grid(row=idx, column=0, sticky="ew", padx=PADDING["page"], pady=(4, 0))
+                group_frame.grid(row=idx - start, column=0, sticky="ew", padx=PADDING["page"], pady=(4, 0))
                 self.group_widgets.append(group_frame)
         else:
             for idx in range(start, end):
                 entry = self._sorted_groups[idx]
                 row_frame = self._create_flat_entry_widget(idx, entry)
-                row_frame.grid(row=idx, column=0, sticky="ew", padx=PADDING["page"], pady=(2, 0))
+                row_frame.grid(row=idx - start, column=0, sticky="ew", padx=PADDING["page"], pady=(2, 0))
                 self.group_widgets.append(row_frame)
 
-        self._rendered_count = end
+        self._update_page_nav()
 
-        if self._load_more_btn is not None:
-            self._load_more_btn.destroy()
-            self._load_more_btn = None
+        # Scroll to top
+        try:
+            self.list_frame._parent_canvas.yview_moveto(0)
+        except Exception:
+            pass
 
-        remaining = len(self._sorted_groups) - self._rendered_count
-        if remaining > 0:
-            next_batch = min(PAGE_SIZE, remaining)
-            self._load_more_btn = ctk.CTkButton(
-                self.list_frame,
-                text=f"Load {next_batch} more  ({remaining} remaining)",
-                font=FONTS["body"], fg_color=COLORS["bg_card"],
-                hover_color=COLORS["bg_card_hover"],
-                text_color=COLORS["accent"],
-                corner_radius=RADIUS["button"], height=40,
-                command=self._render_next_batch,
+    def _go_to_page(self, page: int):
+        """Navigate to a specific page (0-indexed)."""
+        total = self._total_pages()
+        page = max(0, min(page, total - 1))
+        if page == self._current_page:
+            return
+        self._current_page = page
+        self._render_page()
+
+    def _on_per_page_changed(self, value: str):
+        """Handle results-per-page dropdown change."""
+        self._per_page = int(value)
+        self._current_page = 0
+        if self._sorted_groups:
+            self._render_page()
+
+    def _update_page_nav(self):
+        """Rebuild the page navigation buttons."""
+        for w in self._page_nav_frame.winfo_children():
+            w.destroy()
+
+        total = self._total_pages()
+        current = self._current_page
+
+        if total <= 1:
+            return
+
+        btn_style = dict(
+            font=FONTS["body_small"], corner_radius=RADIUS["button"],
+            height=28, width=32,
+        )
+
+        # Previous arrow
+        prev_btn = ctk.CTkButton(
+            self._page_nav_frame, text="\u25c0", **btn_style,
+            fg_color=COLORS["bg_card"], hover_color=COLORS["bg_card_hover"],
+            text_color=COLORS["text_secondary"],
+            command=lambda: self._go_to_page(current - 1),
+            state="normal" if current > 0 else "disabled",
+        )
+        prev_btn.grid(row=0, column=0, padx=1)
+
+        # Build page number list with ellipsis
+        pages_to_show = set()
+        pages_to_show.add(0)              # first
+        pages_to_show.add(total - 1)      # last
+        for p in range(max(0, current - 1), min(total, current + 2)):
+            pages_to_show.add(p)          # current ± 1
+
+        col = 1
+        prev_page = -1
+        for page in sorted(pages_to_show):
+            if prev_page >= 0 and page - prev_page > 1:
+                # Ellipsis
+                ctk.CTkLabel(
+                    self._page_nav_frame, text="...", font=FONTS["body_small"],
+                    text_color=COLORS["text_secondary"], width=24,
+                ).grid(row=0, column=col, padx=0)
+                col += 1
+
+            is_current = (page == current)
+            page_btn = ctk.CTkButton(
+                self._page_nav_frame, text=str(page + 1), **btn_style,
+                fg_color=COLORS["accent"] if is_current else COLORS["bg_card"],
+                hover_color=COLORS["accent_dark"] if is_current else COLORS["bg_card_hover"],
+                text_color="#ffffff" if is_current else COLORS["text_secondary"],
+                command=(lambda p=page: self._go_to_page(p)),
             )
-            self._load_more_btn.grid(
-                row=self._rendered_count, column=0,
-                sticky="ew", padx=PADDING["page"], pady=(8, 12),
-            )
+            page_btn.grid(row=0, column=col, padx=1)
+            col += 1
+            prev_page = page
+
+        # Next arrow
+        next_btn = ctk.CTkButton(
+            self._page_nav_frame, text="\u25b6", **btn_style,
+            fg_color=COLORS["bg_card"], hover_color=COLORS["bg_card_hover"],
+            text_color=COLORS["text_secondary"],
+            command=lambda: self._go_to_page(current + 1),
+            state="normal" if current < total - 1 else "disabled",
+        )
+        next_btn.grid(row=0, column=col, padx=1)
 
     def _create_group_widget(self, idx: int, norm_key: str, entries: list[RomEntry]) -> ctk.CTkFrame:
         """Create a collapsible group card for duplicate ROMs."""
@@ -981,16 +1083,27 @@ class App(ctk.CTk):
                 if query in k or any(query in e.display_name.lower() for e in v)
             }
 
-        if sort_mode == "Largest size first":
+        if sort_mode == "Size \u2193":
             sorted_groups = sorted(
                 groups.items(),
                 key=lambda kv: sum(e.file_size for e in kv[1]),
                 reverse=True,
             )
-        elif sort_mode == "Most copies first":
+        elif sort_mode == "Size \u2191":
+            sorted_groups = sorted(
+                groups.items(),
+                key=lambda kv: sum(e.file_size for e in kv[1]),
+            )
+        elif sort_mode == "Most copies":
             sorted_groups = sorted(
                 groups.items(),
                 key=lambda kv: len(kv[1]),
+                reverse=True,
+            )
+        elif sort_mode == "Z \u2192 A":
+            sorted_groups = sorted(
+                groups.items(),
+                key=lambda kv: kv[1][0].display_name.lower(),
                 reverse=True,
             )
         else:
@@ -1033,8 +1146,12 @@ class App(ctk.CTk):
                     continue
                 flat.append(e)
 
-        if sort_mode == "Largest size first":
+        if sort_mode == "Size \u2193":
             flat.sort(key=lambda e: e.file_size, reverse=True)
+        elif sort_mode == "Size \u2191":
+            flat.sort(key=lambda e: e.file_size)
+        elif sort_mode == "Z \u2192 A":
+            flat.sort(key=lambda e: e.display_name.lower(), reverse=True)
         else:
             flat.sort(key=lambda e: e.display_name.lower())
 
