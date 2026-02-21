@@ -175,7 +175,7 @@ class App(ctk.CTk):
         self._build_debug_panel()
 
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(2, weight=1)
+        self.grid_rowconfigure(4, weight=1)
 
 
     # ================================================================
@@ -212,14 +212,6 @@ class App(ctk.CTk):
             header.bind("<Configure>", self._resize_banner)
             self.after(100, self._resize_banner)
 
-        # ABOUT label (top-left of banner)
-        self._about_label = ctk.CTkLabel(
-            self._banner_bg, text="ABOUT", font=FONTS["body_small"],
-            text_color=COLORS["accent"], cursor="hand2",
-        )
-        self._about_label.place(x=PADDING["page"], y=30, anchor="w")
-        self._about_label.bind("<Button-1>", lambda e: self._show_about_dialog())
-
         # Buttons placed directly on banner label (no title – user's banner has it)
         self.folder_btn = ctk.CTkButton(
             self._banner_bg, text="Select Folder", font=FONTS["body"],
@@ -231,7 +223,7 @@ class App(ctk.CTk):
         self.scan_btn = ctk.CTkButton(
             self._banner_bg, text="Scan", font=FONTS["body"],
             fg_color=COLORS["accent"], hover_color=COLORS["accent_dark"],
-            text_color="#ffffff",
+            text_color="#000000", text_color_disabled="#000000",
             corner_radius=RADIUS["button"], height=36, width=80,
             command=self._on_scan, state="disabled",
         )
@@ -246,16 +238,16 @@ class App(ctk.CTk):
         self._layout_header_buttons(show_cancel=False)
 
     def _layout_header_buttons(self, show_cancel: bool = False):
-        """Position header buttons flush-right."""
+        """Position header buttons flush-right, bottom of header."""
         pad = PADDING["page"]
         if show_cancel:
-            self.cancel_btn.place(relx=1.0, y=22, anchor="e", x=-pad)
-            self.scan_btn.place(relx=1.0, y=22, anchor="e", x=-(pad + 90))
-            self.folder_btn.place(relx=1.0, y=22, anchor="e", x=-(pad + 180))
+            self.cancel_btn.place(relx=1.0, rely=1.0, anchor="se", x=-pad, y=-10)
+            self.scan_btn.place(relx=1.0, rely=1.0, anchor="se", x=-(pad + 90), y=-10)
+            self.folder_btn.place(relx=1.0, rely=1.0, anchor="se", x=-(pad + 180), y=-10)
         else:
             self.cancel_btn.place_forget()
-            self.scan_btn.place(relx=1.0, y=22, anchor="e", x=-pad)
-            self.folder_btn.place(relx=1.0, y=22, anchor="e", x=-(pad + 90))
+            self.scan_btn.place(relx=1.0, rely=1.0, anchor="se", x=-pad, y=-10)
+            self.folder_btn.place(relx=1.0, rely=1.0, anchor="se", x=-(pad + 90), y=-10)
 
     def _resize_banner(self, event=None):
         """Resize the banner image to fill the header width."""
@@ -275,10 +267,17 @@ class App(ctk.CTk):
     # Stats / Search / Filter bar + Mode tabs
     # ================================================================
     def _build_stats_bar(self):
+        # Top border line
+        ctk.CTkFrame(self, fg_color=COLORS["border_stats_bar"], corner_radius=0,
+                      height=2).grid(row=1, column=0, sticky="ew")
+
         bar = ctk.CTkFrame(self, fg_color=COLORS["bg_secondary"], corner_radius=0,
-                           border_width=1, border_color=COLORS["border_stats_bar"],
                            height=110)
-        bar.grid(row=1, column=0, sticky="ew", pady=(1, 0))
+        bar.grid(row=2, column=0, sticky="ew")
+
+        # Bottom border line
+        ctk.CTkFrame(self, fg_color=COLORS["border_stats_bar"], corner_radius=0,
+                      height=2).grid(row=3, column=0, sticky="ew")
         bar.grid_columnconfigure(0, weight=1)
         bar.grid_propagate(False)
         self._stats_bar = bar
@@ -289,11 +288,18 @@ class App(ctk.CTk):
         filter_row.grid_columnconfigure(3, weight=1)
 
         self.path_label = ctk.CTkLabel(
-            filter_row, text="No folder selected",
+            filter_row, text="NO ROMS FOLDER SELECTED",
             font=FONTS["heading_small"],
             text_color=COLORS["text_secondary"], anchor="w",
         )
         self.path_label.grid(row=0, column=0, sticky="w", columnspan=4)
+
+        self._about_btn = ctk.CTkLabel(
+            bar, text="ABOUT", font=FONTS["status"],
+            text_color=COLORS["accent"], cursor="hand2",
+        )
+        self._about_btn.place(relx=0.5, y=12, anchor="n")
+        self._about_btn.bind("<Button-1>", lambda e: self._show_about_dialog())
 
         self.stats_label = ctk.CTkLabel(
             filter_row, text="", font=FONTS["body_small"],
@@ -301,15 +307,15 @@ class App(ctk.CTk):
         )
         self.stats_label.grid(row=0, column=4, sticky="e", columnspan=4)
 
-        self.search_var = ctk.StringVar()
-        self.search_var.trace_add("write", lambda *_: self._on_filter_changed())
         self.search_entry = ctk.CTkEntry(
-            filter_row, textvariable=self.search_var,
+            filter_row,
             font=FONTS["body_small"], height=28, width=220,
             fg_color=COLORS["bg_input"], border_color=COLORS["border_input"],
             corner_radius=RADIUS["input"], placeholder_text="Search games...",
+            placeholder_text_color="#888888",
         )
         self.search_entry.grid(row=1, column=0, sticky="w", pady=(2, 0))
+        self.search_entry.bind("<KeyRelease>", lambda e: self._on_filter_changed())
 
         ctk.CTkLabel(filter_row, text="Sort:", font=FONTS["body_small"],
                       text_color=COLORS["text_secondary"]
@@ -487,7 +493,7 @@ class App(ctk.CTk):
             scrollbar_button_color=COLORS["bg_card"],
             scrollbar_button_hover_color=COLORS["bg_card_hover"],
         )
-        self.list_frame.grid(row=2, column=0, sticky="nsew", padx=0, pady=0)
+        self.list_frame.grid(row=4, column=0, sticky="nsew", padx=0, pady=0)
         self.list_frame.grid_columnconfigure(0, weight=1)
 
         self.placeholder = ctk.CTkLabel(
@@ -502,7 +508,7 @@ class App(ctk.CTk):
     # ================================================================
     def _build_action_bar(self):
         bar = ctk.CTkFrame(self, fg_color=COLORS["bg_secondary"], corner_radius=0, height=50)
-        bar.grid(row=3, column=0, sticky="ew")
+        bar.grid(row=5, column=0, sticky="ew")
         bar.grid_columnconfigure(1, weight=1)
 
         left = ctk.CTkFrame(bar, fg_color="transparent")
@@ -554,7 +560,7 @@ class App(ctk.CTk):
     # ================================================================
     def _build_debug_panel(self):
         wrapper = ctk.CTkFrame(self, fg_color=COLORS["bg_secondary"], corner_radius=0)
-        wrapper.grid(row=4, column=0, sticky="ew")
+        wrapper.grid(row=6, column=0, sticky="ew")
         wrapper.grid_columnconfigure(0, weight=1)
 
         toggle_btn = ctk.CTkButton(
@@ -620,7 +626,7 @@ class App(ctk.CTk):
         ).pack(pady=(0, 2))
 
         ctk.CTkLabel(
-            dialog, text=f"v{APP_VERSION}", font=FONTS["body_small"],
+            dialog, text=f"v{APP_VERSION}", font=FONTS["body"],
             text_color=COLORS["text_secondary"],
         ).pack(pady=(0, 8))
 
@@ -1118,7 +1124,7 @@ class App(ctk.CTk):
 
     def _apply_filter_duplicates(self):
         """Filter and sort for DUPLICATES mode (grouped cards)."""
-        query = self.search_var.get().lower().strip()
+        query = self.search_entry.get().lower().strip()
         system_filter = self.system_var.get()
         sort_mode = self.sort_var.get()
 
@@ -1183,7 +1189,7 @@ class App(ctk.CTk):
 
     def _apply_filter_manage(self):
         """Filter and sort for MANAGE mode (flat game list)."""
-        query = self.search_var.get().lower().strip()
+        query = self.search_entry.get().lower().strip()
         system_filter = self.system_var.get()
         sort_mode = self.sort_var.get()
         unscraped_only = self._unscraped_var.get()

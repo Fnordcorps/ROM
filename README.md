@@ -1,7 +1,8 @@
 # ROM
 
-A desktop ROM collection manager for **RetroBat** and **Launchbox** formatted libraries. Scans your ROM folders, detects cross-system duplicates, and lets you move or permanently delete unwanted copies — all from a single dark-themed UI.
+A desktop ROM collection manager for **RetroBat** and **Launchbox** formatted libraries. Scans your ROM folders, detects cross-system duplicates, and lets you move or permanently delete unwanted copies — all from a single UI.
 
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-ffdd00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/fnordcorps)
 ![Python](https://img.shields.io/badge/Python-3.12+-blue) ![Platform](https://img.shields.io/badge/Platform-Windows-lightgrey) ![License](https://img.shields.io/badge/License-MIT-green)
 
 ## Features
@@ -121,6 +122,8 @@ The exe will be in the `dist/` folder.
 ## Tips
 
 - **Update gamelists before scanning** — Run your scraper (e.g. via RetroBat or Skraper) before scanning for the best display names
-- **Network paths work** — You can point ROM at a network share like `\\SERVER\roms\`
+- **Network paths work** — You can point ROM at a network share like `\\SERVER\roms\` - but this can be very slow.
 - **Hidden folder** — Moved files go to `Hidden/<system>/` inside your ROM root. These folders are skipped during scans. You can manually move files back if needed
 - **Check the log** — All operations are logged to `rom.log` in your ROM root folder for reference
+
+Enjoy!

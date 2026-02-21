@@ -32,7 +32,7 @@ COLORS = {
     # Borders
     "border_default":   "#3c3c3c",
     "border_input":     "#555555",
-    "border_stats_bar": "#c13004",
+    "border_stats_bar": "#b63405",
 
     # Status
     "status_info":      "#569cd6",
